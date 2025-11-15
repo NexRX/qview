@@ -1,3 +1,5 @@
+use sqlparser::parser::ParserError;
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Database error: {0}")]
@@ -10,7 +12,7 @@ pub enum Error {
     Io(#[from] std::io::Error),
 
     #[error("Invalid query: {0}")]
-    InvalidQuery(String),
+    InvalidQuery(ParserError),
 
     #[error("Configuration error: {0}")]
     Config(String),
@@ -20,3 +22,9 @@ pub enum Error {
 }
 
 pub type Result<T = ()> = std::result::Result<T, Error>;
+
+impl From<ParserError> for Error {
+    fn from(value: ParserError) -> Self {
+        Error::InvalidQuery(value)
+    }
+}

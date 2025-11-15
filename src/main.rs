@@ -2,6 +2,8 @@ reexport!(testing, test);
 reexport!(error);
 reexport!(validator);
 reexport!(config);
+reexport!(autocomplete);
+reexport!(metadata);
 #[allow(unused_imports)]
 pub(crate) use tracing::{debug, error, info, span, trace, warn};
 
