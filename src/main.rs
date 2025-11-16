@@ -1,7 +1,5 @@
 reexport!(testing, test);
-reexport!(error);
-reexport!(validator);
-reexport!(config);
+reexport!(logic);
 reexport!(autocomplete);
 reexport!(metadata);
 #[allow(unused_imports)]
@@ -24,6 +22,7 @@ macro_rules! reexport {
         mod $module;
         #[cfg_attr($is_test, cfg(test))]
         #[allow(unused_imports)]
+        #[allow(ambiguous_glob_reexports)]
         pub use $module::*;
     };
 }
