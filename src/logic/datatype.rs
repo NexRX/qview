@@ -1,6 +1,6 @@
 use derive_more::{Debug, Display};
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
 pub enum DataType {
     Boolean,
     #[display(
@@ -114,4 +114,6 @@ pub enum DataType {
     Inet4,
     Inet6,
     Uuid,
+    #[default]
+    Unknown,
 }
