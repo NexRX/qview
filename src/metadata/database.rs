@@ -1,54 +1,4 @@
-use std::{collections::HashMap, sync::LazyLock};
-use tokio::sync::RwLock;
-
-pub type Data<T> = RwLock<HashMap<String, T>>;
-pub type MetaData = LazyLock<Data<Database>>;
-pub static METADATA: MetaData = LazyLock::new(|| Data::new(HashMap::new()));
-
-#[derive(Clone, Debug)]
-pub struct Column {
-    pub name: String,
-    pub data_type: String,
-}
-
-impl Column {
-    pub fn new(name: impl Into<String>, data_type: impl Into<String>) -> Self {
-        Self {
-            name: name.into(),
-            data_type: data_type.into(),
-        }
-    }
-}
-
-#[derive(Default, Debug)]
-pub struct Table {
-    pub name: String,
-    pub columns: Data<Column>,
-}
-
-impl Table {
-    pub fn new(name: impl Into<String>) -> Self {
-        Self {
-            name: name.into(),
-            columns: Data::new(HashMap::new()),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct Schema {
-    pub name: String,
-    pub tables: Data<Table>,
-}
-
-impl Schema {
-    pub fn new(name: impl Into<String>) -> Self {
-        Self {
-            name: name.into(),
-            tables: Data::new(HashMap::new()),
-        }
-    }
-}
+use super::*;
 
 #[derive(Debug)]
 pub struct Database {
@@ -82,11 +32,11 @@ impl Database {
     }
 
     /// Add (or create) schema and insert the table.
-    pub async fn insert_table(&mut self, schema_name: String, table: Table) {
+    pub async fn insert_table(&mut self, schema_name: impl Display, table: Table) {
         let mut schemas = self.schemas.write().await;
         schemas
-            .entry(schema_name.clone())
-            .or_insert_with(|| Schema::new(&schema_name)) // Create/return schema
+            .entry(schema_name.to_string())
+            .or_insert_with(|| Schema::new(schema_name.to_string())) // Create/return schema
             .tables
             .write()
             .await

@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 confique = "0.4.0"
 derive_more = { version = "2.0.1", features = ["full"] }
+itertools = "0.14.0"
 moka = { version = "0.12.11", features = ["future"] }
 sqlparser = "0.59.0"
 sqlx = { version = "0.9.0-alpha.1", features = [
