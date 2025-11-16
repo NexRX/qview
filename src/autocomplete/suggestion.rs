@@ -107,6 +107,24 @@ mod tests {
     use sqlparser::parser::Parser;
     static POSTGRES: PostgreSqlDialect = PostgreSqlDialect {};
 
+    async fn database(database: &str, tables: &[(&str, Vec<(&str, DataType)>)]) -> Database {
+        let mut meta = Database::new(database);
+        for (table_name, columns) in tables {
+            meta.insert_table(
+                "public",
+                Table::new_with_ordered(
+                    *table_name,
+                    columns
+                        .iter()
+                        .cloned()
+                        .map(|(name, data_type)| (name.to_string(), data_type)),
+                ),
+            )
+            .await;
+        }
+        meta
+    }
+
     #[rstest]
     #[case("SELECT  FROM example", (7, None), vec![("example", vec![("id", DataType::Uuid)])])]
     #[case("SELECT  FROM example", (7, None), vec![("example", vec![("id", DataType::Uuid), ("name", DataType::Text)])])]
@@ -138,22 +156,7 @@ mod tests {
         #[case] tables: Vec<(&str, Vec<(&str, DataType)>)>,
     ) {
         // When
-        let mut meta = Database::new("postgres");
-
-        for (table_name, columns) in &tables {
-            meta.insert_table(
-                "public",
-                Table::new_with_ordered(
-                    *table_name,
-                    columns
-                        .iter()
-                        .cloned()
-                        .map(|(name, data_type)| (name.to_string(), data_type)),
-                ),
-            )
-            .await;
-        }
-
+        let meta = database("postgres", &tables).await;
         let statements = Parser::parse_sql(&POSTGRES, sql).expect("parse");
 
         // Then
@@ -169,5 +172,55 @@ mod tests {
             .collect();
 
         assert_eq!(result, expected_columns);
+    }
+
+    #[rstest]
+    // Suggestions for users table
+    #[case(
+        "SELECT users.  FROM example JOIN users ON example.id = users.example_id",
+        (13, None),
+        vec![
+            ("example", vec![("id", DataType::Uuid)]),
+            ("users", vec![("user_id", DataType::Uuid), ("example_id", DataType::Uuid)])
+        ],
+        vec![("user_id", DataType::Uuid), ("example_id", DataType::Uuid)]
+    )]
+    /// Ssuggestions for table 'a' when both tables have identical column names
+    #[case(
+        "SELECT a.  FROM a JOIN b ON a.id = b.id",
+        (9, None),
+        vec![
+            ("a", vec![("id", DataType::Uuid), ("name", DataType::Text)]),
+            ("b", vec![("id", DataType::Uuid), ("name", DataType::Text)])
+        ],
+        vec![("id", DataType::Uuid), ("name", DataType::Text)]
+    )]
+    #[tokio::test]
+    async fn should_recommend_qualified_columns(
+        #[case] sql: &str,
+        #[case] (start, end): (usize, Option<usize>),
+        #[case] tables: Vec<(&str, Vec<(&str, DataType)>)>,
+        #[case] expected: Vec<(&str, DataType)>,
+    ) {
+        // When
+        let meta = database("postgres", &tables).await;
+        let statements = Parser::parse_sql(&POSTGRES, sql).expect("parse");
+
+        // Then
+        let result = suggest(statements, Cursor::new(start, end), meta)
+            .await
+            .expect("suggestion shouldnt error");
+
+        // Should
+        let expected_columns: Vec<_> = expected
+            .into_iter()
+            .map(|(name, data_type)| Suggestion::Column(name.to_string(), data_type))
+            .collect();
+
+        // Desired behavior: only columns belonging to the qualified table prefix.
+        assert_eq!(
+            result, expected_columns,
+            "qualified suggestions should only include columns from the referenced table prefix"
+        );
     }
 }
