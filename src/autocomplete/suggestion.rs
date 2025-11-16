@@ -1,5 +1,5 @@
 use crate::*;
-use sqlparser::ast::{DataType, Expr, Query, SelectItem, SetExpr, Statement, TableFactor};
+use sqlparser::ast::{Expr, Query, SelectItem, SetExpr, Statement, TableFactor};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Suggestion {
@@ -102,7 +102,6 @@ pub async fn suggest(
 mod tests {
     use super::*;
     use rstest::rstest;
-    use sqlparser::ast::DataType;
     use sqlparser::dialect::PostgreSqlDialect;
     use sqlparser::parser::Parser;
     static POSTGRES: PostgreSqlDialect = PostgreSqlDialect {};
@@ -127,9 +126,9 @@ mod tests {
 
     #[rstest]
     #[case("SELECT  FROM example", (7, None), vec![("example", vec![("id", DataType::Uuid)])])]
-    #[case("SELECT  FROM example", (7, None), vec![("example", vec![("id", DataType::Uuid), ("name", DataType::Text)])])]
-    #[case("SELECT (SELECT  FROM example) FROM other", (15, None), vec![("example", vec![("id", DataType::Uuid), ("name", DataType::Text)])])]
-    #[case("SELECT  FROM example, users", (7, None), vec![("example", vec![("id", DataType::Uuid)]), ("users", vec![("user_id", DataType::Uuid), ("email", DataType::Text)])])]
+    #[case("SELECT  FROM example", (7, None), vec![("example", vec![("id", DataType::Uuid), ("name", DataType::Text(None))])])]
+    #[case("SELECT (SELECT  FROM example) FROM other", (15, None), vec![("example", vec![("id", DataType::Uuid), ("name", DataType::Text(None))])])]
+    #[case("SELECT  FROM example, users", (7, None), vec![("example", vec![("id", DataType::Uuid)]), ("users", vec![("user_id", DataType::Uuid), ("email", DataType::Text(None))])])]
     #[case("SELECT  FROM example JOIN users ON example.id = users.example_id", (7, None), vec![("example", vec![("id", DataType::Uuid)]), ("users", vec![("user_id", DataType::Uuid), ("example_id", DataType::Uuid)])])]
     // Alias (simple)
     #[case("SELECT  FROM example e", (7, None), vec![("example", vec![("id", DataType::Uuid)])])]
@@ -141,13 +140,13 @@ mod tests {
     #[case("SELECT (SELECT (SELECT  FROM inner)) FROM outer", (22, None), vec![("inner", vec![("iid", DataType::Uuid)])])]
     // Same column names across two tables
     #[case("SELECT  FROM a, b", (7, None), vec![
-        ("a", vec![("id", DataType::Uuid), ("name", DataType::Text)]),
-        ("b", vec![("id", DataType::Uuid), ("name", DataType::Text)]),
+        ("a", vec![("id", DataType::Uuid), ("name", DataType::Text(None))]),
+        ("b", vec![("id", DataType::Uuid), ("name", DataType::Text(None))]),
     ])]
     // Join with aliases
     #[case("SELECT  FROM a AS x JOIN b AS y ON x.id = y.id", (7, None), vec![
-        ("a", vec![("id", DataType::Uuid), ("name", DataType::Text)]),
-        ("b", vec![("id", DataType::Uuid), ("name", DataType::Text)]),
+        ("a", vec![("id", DataType::Uuid), ("name", DataType::Text(None))]),
+        ("b", vec![("id", DataType::Uuid), ("name", DataType::Text(None))]),
     ])]
     #[tokio::test]
     async fn should_recommend_columns(
@@ -190,10 +189,10 @@ mod tests {
         "SELECT a.  FROM a JOIN b ON a.id = b.id",
         (9, None),
         vec![
-            ("a", vec![("id", DataType::Uuid), ("name", DataType::Text)]),
-            ("b", vec![("id", DataType::Uuid), ("name", DataType::Text)])
+            ("a", vec![("id", DataType::Uuid), ("name", DataType::Text(None))]),
+            ("b", vec![("id", DataType::Uuid), ("name", DataType::Text(None))])
         ],
-        vec![("id", DataType::Uuid), ("name", DataType::Text)]
+        vec![("id", DataType::Uuid), ("name", DataType::Text(None))]
     )]
     #[tokio::test]
     async fn should_recommend_qualified_columns(

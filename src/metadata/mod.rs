@@ -3,7 +3,6 @@ crate::reexport!(table);
 crate::reexport!(schema);
 crate::reexport!(database);
 
-use sqlparser::ast::DataType;
 use std::{collections::HashMap, fmt::Display, sync::LazyLock};
 use tokio::sync::RwLock;
 
