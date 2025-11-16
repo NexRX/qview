@@ -2,6 +2,7 @@ reexport!(testing, test);
 reexport!(logic);
 reexport!(autocomplete);
 reexport!(metadata);
+reexport!(sql);
 #[allow(unused_imports)]
 pub(crate) use tracing::{debug, error, info, span, trace, warn};
 

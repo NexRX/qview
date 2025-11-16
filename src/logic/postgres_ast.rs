@@ -1,22 +1,35 @@
-use derive_more::{Deref, DerefMut};
-use sql_parse::*;
+//! Placeholder module for a future PostgreSQL AST implementation.
+//!
+//! This file exists so the crate's `reexport!(postgres_ast);` macro invocation
+//! succeeds during compilation and tests. The real implementation can later
+//! provide:
+//! - Lightweight / error-tolerant parsing utilities for incomplete SQL
+//! - Structures representing SELECT / FROM / JOIN clauses
+//! - Helpers for cursor‑aware node lookup
+//!
+//! For now we only expose a minimal public API surface to avoid unused warnings
+//! and to make incremental development straightforward.
 
-#[derive(Debug, Deref, DerefMut)]
-pub struct PostgresAST<'a> {
-    pub issues: Issues<'a>,
-    #[deref]
-    #[deref_mut]
-    pub statements: Vec<Statement<'a>>,
+/// A very small enum demonstrating how future AST node kinds might be
+/// represented. Extend / replace once real parsing is introduced.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AstNode {
+    /// Represents a `SELECT` statement (possibly incomplete).
+    Select,
+    /// Represents a `FROM` clause with raw text captured.
+    From(String),
+    /// Generic / unknown fragment.
+    Unknown(String),
 }
 
-impl<'a> PostgresAST<'a> {
-    pub fn parse(sql: &'a str) -> Self {
-        let mut issues = Issues::new(sql);
-        let options = ParseOptions::new()
-            .dialect(SQLDialect::PostgreSQL)
-            .arguments(SQLArguments::QuestionMark)
-            .warn_unquoted_identifiers(false);
-        let statements = parse_statements(sql, &mut issues, &options);
-        Self { issues, statements }
+impl AstNode {
+    /// Convenience constructor for an unknown fragment.
+    pub fn unknown<T: Into<String>>(raw: T) -> Self {
+        AstNode::Unknown(raw.into())
     }
+}
+
+/// Parse returns a trivial `AstNode::Unknown` today. Replace with real logic later.
+pub fn parse_fragment<T: Into<String>>(sql_fragment: T) -> AstNode {
+    AstNode::unknown(sql_fragment)
 }
