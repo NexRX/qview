@@ -202,6 +202,8 @@ mod tests {
         #[case] expected: Vec<(&str, DataType)>,
     ) {
         // When
+        let test = PostgresAST::parse(sql);
+        dbg!(test);
         let meta = database("postgres", &tables).await;
         let statements = Parser::parse_sql(&POSTGRES, sql).expect("parse");
 
