@@ -1,35 +1,5 @@
 use crate::*;
 
-/// Added note:
-/// I need precise line-numbered file content for the sections containing:
-/// - `impl Suggestion { pub async fn search(..`
-/// - The test cases expecting derived / CTE behavior
-/// to safely implement the advanced features (CTE parsing, derived table alias handling with star and AS alias expansion).
-///
-/// Right now I only replaced this first line (no functional change). Please provide the relevant code
-/// spans with line numbers so I can make accurate minimal edits without risking mismatches.
-///
-/// Planned implementation outline (will be inserted once you supply the exact regions):
-/// 1. In `search`:
-///    - Before token-based logic, perform a lightweight scan of the raw SQL for a leading WITH clause.
-///    - Parse CTE definitions: name AS (subquery). For each subquery, extract projection list.
-///    - Support:
-///        a. Star expansion (*) against tables in that subquery's FROM (string-scan; fallback to existing metadata).
-///        b. Column alias normalization: keep alias name only (id AS ident -> ident).
-///    - Store CTE columns in a map; on qualified suggestions (prefix.) check CTE map first.
-/// 2. Derived table alias handling:
-///    - When scanning the FROM portion in `extract_tables`, detect patterns: (SELECT ... ) alias.
-///    - Reuse the same projection parsing as for CTE. Star & AS alias apply.
-/// 3. Adjust unqualified suggestions to include derived alias columns and CTE columns after base tables.
-/// 4. Update tests:
-///    - Modify expectations for previously failing cases:
-///        - Derived star now expands underlying table columns.
-///        - Derived column aliases now return only alias names (with resolved DataTypes where possible).
-///        - CTE-related tests return CTE columns in unqualified mode and on qualified prefix.
-///    - Keep gap documentation tests for still unimplemented features (e.g., nested CTE chains if not fully resolved).
-///
-/// Please send the line-numbered blocks so I can produce compliant <old_text>/<new_text> replacements for those exact segments.
-
 /// An autocomplete suggestion. Variants represent different kinds of things that can be suggested while
 /// the user types a SQL query: raw keywords, fully qualified columns and tables.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, derive_more::Display)]
@@ -262,15 +232,6 @@ impl Suggestion {
             }
         }
     }
-
-    // Removed: locate_inner_select_from (derived subquery helper no longer used)
-
-    // Removed: find_matching_paren (unused after rollback of derived/CTE support)
-
-    // Removed: gather_projection_columns (projection parsing helper not used in stable implementation)
-    // Removed: resolve_column_type (no column type inference needed after rollback)
-
-    // Removed: extract_ctes (CTE parsing not supported in stable implementation)
 }
 
 #[cfg(test)]
@@ -335,77 +296,57 @@ mod tests {
     }
 
     #[rstest]
+    // Case 1: single table, single column
     #[case("SELECT  FROM example", (7, None), vec![("example", vec![("id", DataType::Uuid)])])]
+    // Case 2: single table, multiple columns order preserved
     #[case("SELECT  FROM example", (7, None), vec![("example", vec![("id", DataType::Uuid), ("name", DataType::Text(None))])])]
+    // Case 3: nested subquery inner SELECT isolation
     #[case("SELECT (SELECT  FROM example) FROM other", (15, None), vec![("example", vec![("id", DataType::Uuid), ("name", DataType::Text(None))])])]
+    // Case 4: multiple tables comma separated
     #[case("SELECT  FROM example, users", (7, None), vec![("example", vec![("id", DataType::Uuid)]), ("users", vec![("user_id", DataType::Uuid), ("email", DataType::Text(None))])])]
+    // Case 5: simple JOIN with ON clause
     #[case("SELECT  FROM example JOIN users ON example.id = users.example_id", (7, None), vec![("example", vec![("id", DataType::Uuid)]), ("users", vec![("user_id", DataType::Uuid), ("example_id", DataType::Uuid)])])]
     // Alias (simple)
+    // Case 6: alias without AS
     #[case("SELECT  FROM example e", (7, None), vec![("example", vec![("id", DataType::Uuid)])])]
-    // Alias with AS
+    // Case 7: alias with AS
     #[case("SELECT  FROM example AS ex", (7, None), vec![("example", vec![("id", DataType::Uuid)])])]
-    // No FROM clause should yield no suggestions
+    // Case 8: no FROM clause yields no suggestions
     #[case("SELECT 1", (7, None), vec![])]
-    // Deeply nested subquery
+    // Case 9: deeply nested subquery isolation
     #[case("SELECT (SELECT (SELECT  FROM inner)) FROM outer", (22, None), vec![("inner", vec![("iid", DataType::Uuid)])])]
-    // (subquery isolation cases moved to dedicated test function below)
-    // TODO: Derived table alias column extraction not yet implemented.
-    // I need the exact function block for `pub async fn search(...)` and `fn extract_tables(...)`
-    // to safely modify signatures and logic (adding derived subquery alias handling).
-    // Please provide those exact lines (including their current contents) so I can patch them
-    // without risking mismatched text. Once I have them, I'll:
-    // 1. Extend `extract_tables` to detect `(SELECT ... ) alias` derived tables.
-    // 2. Capture projection columns of the subquery (mapping to real columns via metadata).
-    // 3. Return an additional map of derived_alias -> Vec<(String, DataType)>.
-    // 4. Update `search` to surface derived alias columns on qualified prefix and in unqualified aggregation.
-    // 5. Add tests for:
-    //    - Parenthesized join groups.
-    //    - Multi-schema duplicate table names.
-    //    - Quoted identifiers / case sensitivity.
-    //    - CTE chains and multiple CTE references.
-    //    - UNION / INTERSECT / EXCEPT with nested subqueries.
-    //    - Derived table alias un/qualified suggestions.
-    // Provide the code blocks and I will proceed with minimal precise edits.
-    // Same column names across two tables
+    // Case 10: duplicate column names across tables
     #[case("SELECT  FROM a, b", (7, None), vec![
-
         ("a", vec![("id", DataType::Uuid), ("name", DataType::Text(None))]),
-
         ("b", vec![("id", DataType::Uuid), ("name", DataType::Text(None))]),
-
     ])]
-    // Join with aliases
+    // Case 11 (should_recommend_columns): JOIN with table aliases
     #[case("SELECT  FROM a AS x JOIN b AS y ON x.id = y.id", (7, None), vec![
-
         ("a", vec![("id", DataType::Uuid), ("name", DataType::Text(None))]),
-
         ("b", vec![("id", DataType::Uuid), ("name", DataType::Text(None))]),
-
     ])]
-    // Terminator WHERE should stop extraction
+    // Case 12: WHERE terminator stops table extraction
     #[case("SELECT  FROM example WHERE example.id IS NOT NULL", (7, None), vec![("example", vec![("id", DataType::Uuid)])])]
-    // Terminator GROUP BY should stop extraction
+    // Case 13: GROUP BY terminator stops table extraction
     #[case("SELECT  FROM example GROUP BY example.id", (7, None), vec![("example", vec![("id", DataType::Uuid)])])]
-    // Terminator after join chain
+    // Case 14: JOIN chain with subsequent WHERE terminator
     #[case("SELECT  FROM a JOIN b ON a.id = b.id WHERE a.id > 0", (7, None), vec![
         ("a", vec![("id", DataType::Uuid), ("name", DataType::Text(None))]),
-
         ("b", vec![("id", DataType::Uuid), ("name", DataType::Text(None))]),
-
     ])]
-    // Early cursor before FROM (no FROM yet)
+    // Case 15: Early cursor before FROM (no FROM yet)
     #[case("SELECT  foo", (7, None), vec![])]
-    // Multiple SELECT statements (cursor in second)
+    // Case 16: Multiple SELECT statements (cursor in second)
     #[case("SELECT  FROM a; SELECT  FROM b", (23, None), vec![("b", vec![("bid", DataType::Uuid)])])]
-    // Ordering preservation test
+    // Case 17: Ordering preservation test
     #[case("SELECT  FROM ord", (7, None), vec![("ord", vec![("id", DataType::Uuid), ("created_at", DataType::Text(None)), ("name", DataType::Text(None))])])]
-    // ORDER BY terminator
+    // Case 18: ORDER BY terminator
     #[case("SELECT  FROM a ORDER BY a.id", (7, None), vec![("a", vec![("id", DataType::Uuid), ("name", DataType::Text(None))])])]
-    // LIMIT terminator
+    // Case 19: LIMIT terminator
     #[case("SELECT  FROM a LIMIT 10", (7, None), vec![("a", vec![("id", DataType::Uuid)])])]
-    // Trailing comma after table list
+    // Case 20: Trailing comma after table list
     #[case("SELECT  FROM a,", (7, None), vec![("a", vec![("id", DataType::Uuid)])])]
-    // Unknown table referenced (not in metadata)
+    // Case 21: Unknown table referenced (not in metadata)
     #[case("SELECT  FROM missing", (7, None), vec![])]
     #[tokio::test]
     async fn should_recommend_columns(
@@ -438,9 +379,9 @@ mod tests {
     // These ensure depth tracking prevents leakage of outer tables into inner subqueries
     // and excludes inner tables when cursor is in the outer SELECT projection.
     #[rstest]
+    // Case 1: Subquery with JOIN chain
     #[case(
-        "SELECT (SELECT  FROM inner JOIN another ON inner.id = another.inner_id) FROM outer",
-        (15, None),
+        "SELECT (SELECT  FROM inner JOIN another ON inner.id = another.inner_id) FROM outer", (15, None),
         vec![
             ("inner", vec![("id", DataType::Uuid)]),
             ("another", vec![("inner_id", DataType::Uuid), ("val", DataType::Text(None))]),
@@ -452,9 +393,9 @@ mod tests {
             ("val", DataType::Text(None))
         ]
     )]
+    // Case 2: Subquery with JOIN chain
     #[case(
-        "SELECT  , (SELECT id FROM inner) FROM outer JOIN other2 ON outer.oid = other2.oid",
-        (7, None),
+        "SELECT  , (SELECT id FROM inner) FROM outer JOIN other2 ON outer.oid = other2.oid", (7, None),
         vec![
             ("outer", vec![("oid", DataType::Uuid), ("name", DataType::Text(None))]),
             ("other2", vec![("oid", DataType::Uuid), ("desc", DataType::Text(None))]),
@@ -467,9 +408,9 @@ mod tests {
             ("desc", DataType::Text(None))
         ]
     )]
+    // Case 3: Deep subquery
     #[case(
-        "SELECT (SELECT (SELECT  FROM deep)) FROM outer",
-        (22, None),
+        "SELECT (SELECT (SELECT  FROM deep)) FROM outer", (22, None),
         vec![
             ("deep", vec![("did", DataType::Uuid), ("dval", DataType::Text(None))]),
             ("outer", vec![("oid", DataType::Uuid)])
@@ -503,7 +444,7 @@ mod tests {
     }
 
     #[rstest]
-    // Suggestions for users table
+    // Case 1: Suggestions for users table
     #[case(
         "SELECT users.  FROM example JOIN users ON example.id = users.example_id",
         (13, None),
@@ -513,7 +454,7 @@ mod tests {
         ],
         vec![("user_id", DataType::Uuid), ("example_id", DataType::Uuid)]
     )]
-    /// Suggestions for table 'a' when both tables have identical column names
+    // Case 2: Suggestions for table 'a' when both tables have identical column names
     #[case(
         "SELECT a.  FROM a JOIN b ON a.id = b.id",
         (9, None),
@@ -523,14 +464,14 @@ mod tests {
         ],
         vec![("id", DataType::Uuid), ("name", DataType::Text(None))]
     )]
-    // Alias resolution (simple alias)
+    // Case 3: Alias resolution (simple alias)
     #[case(
         "SELECT ex.  FROM example ex",
         (10, None),
         vec![("example", vec![("id", DataType::Uuid)])],
         vec![("id", DataType::Uuid)]
     )]
-    // Alias resolution (AS form)
+    // Case 4: Alias resolution (AS form)
     #[case(
         "SELECT x.  FROM a AS x JOIN b AS y ON x.id = y.id",
         (9, None),
@@ -540,42 +481,42 @@ mod tests {
         ],
         vec![("id", DataType::Uuid), ("name", DataType::Text(None))]
     )]
-    // Alias with WHERE terminator
+    // Case 5: Alias with WHERE terminator
     #[case(
         "SELECT x.  FROM a AS x WHERE x.id > 0",
         (9, None),
         vec![("a", vec![("id", DataType::Uuid), ("name", DataType::Text(None))])],
         vec![("id", DataType::Uuid), ("name", DataType::Text(None))]
     )]
-    // Unknown alias should yield no suggestions
+    // Case 6: Unknown alias should yield no suggestions
     #[case(
         "SELECT z.  FROM a AS x",
         (9, None),
         vec![("a", vec![("id", DataType::Uuid), ("name", DataType::Text(None))])],
         vec![]
     )]
-    // Simple qualified prefix without alias
+    // Case 7: Simple qualified prefix without alias
     #[case(
         "SELECT a.  FROM a",
         (9, None),
         vec![("a", vec![("id", DataType::Uuid), ("name", DataType::Text(None))])],
         vec![("id", DataType::Uuid), ("name", DataType::Text(None))]
     )]
-    // End-of-input qualified prefix (no FROM yet) should yield none
+    // Case 8: End-of-input qualified prefix (no FROM yet) should yield none
     #[case(
         "SELECT a.",
         (9, None),
         vec![("a", vec![("id", DataType::Uuid)])],
         vec![]
     )]
-    // Qualified prefix with ORDER BY terminator
+    // Case 9: Qualified prefix with ORDER BY terminator
     #[case(
             "SELECT a.  FROM a ORDER BY a.id",
             (9, None),
             vec![("a", vec![("id", DataType::Uuid)])],
             vec![("id", DataType::Uuid)]
         )]
-    // Qualified prefix inside subquery referencing outer alias (no outer columns should leak)
+    // Case 10: Qualified prefix inside subquery referencing outer alias (no outer columns should leak)
     #[case(
             "SELECT (SELECT o.  FROM inner) FROM outer o",
             (18, None),
@@ -585,9 +526,7 @@ mod tests {
             ],
             vec![]
         )]
-    // Qualified prefix referencing subquery alias (subquery alias itself not resolved)
-    // Removed unsupported derived subquery alias qualified test case (subquery alias not currently resolved)
-    // Qualified prefix for inner table while cursor inside subquery (only inner table columns)
+    // Case 11: Qualified prefix referencing subquery alias (subquery alias itself not resolved)
     #[case(
             "SELECT (SELECT inner.  FROM inner JOIN another ON inner.id = another.inner_id) FROM outer",
             (24, None),
@@ -619,188 +558,240 @@ mod tests {
             .map(|(name, data_type)| Suggestion::Column(name.to_string(), data_type))
             .collect();
 
-        // Desired behavior: only columns belonging to the qualified table prefix.
-
         assert_eq!(
             result, expected_columns,
             "qualified suggestions should only include columns from the referenced table prefix"
         );
     }
 
-    // Additional tests: UNION handling, derived table alias, CTE exposure, multi-schema duplicates, alias shadowing.
-    // Gaps to document: derived subquery star expansion, column aliases inside derived subquery,
-    // CTE chaining (CTE referencing another CTE), parenthesized join group alias, INTERSECT/EXCEPT termination,
-    // qualified derived star alias.
-    //
-    // NOTE: These tests describe current behavior and highlight missing features rather than asserting future desired behavior.
-
     // Derived subquery with star: current behavior -> no derived columns captured (star not expanded)
+    #[rstest]
+    // Case 1: Derived subquery star expansion unsupported -> expect empty suggestions
+    #[case(
+        "SELECT  FROM (SELECT * FROM a) sub",
+        (7, None),
+        vec![("a", vec![("id", DataType::Uuid), ("name", DataType::Text(None))])],
+        vec![]
+    )]
     #[tokio::test]
-    async fn should_document_gap_derived_star() {
-        let meta = database(
-            "postgres",
-            &[(
-                "a",
-                vec![("id", DataType::Uuid), ("name", DataType::Text(None))],
-            )],
-        )
-        .await;
-        let sql = "SELECT  FROM (SELECT * FROM a) sub";
-        let result = Suggestion::search(sql, Cursor::new(7, None), meta)
+    async fn should_document_gap_derived_star(
+        #[case] sql: &str,
+        #[case] (start, end): (usize, Option<usize>),
+        #[case] tables: Vec<(&str, Vec<(&str, DataType)>)>,
+        #[case] expected: Vec<(&str, DataType)>,
+    ) {
+        let meta = database("postgres", &tables).await;
+        let result = Suggestion::search(sql, Cursor::new(start, end), meta)
             .await
             .expect("derived star");
-        // Current behavior: only base table columns (because derived star not parsed) + no derived alias columns.
-        let expected: Vec<Suggestion> = vec![];
+        let expected_columns: Vec<_> = expected
+            .into_iter()
+            .map(|(n, dt)| Suggestion::Column(n.to_string(), dt))
+            .collect();
         assert_eq!(
-            result, expected,
+            result, expected_columns,
             "gap: star (*) in derived subquery not expanded into alias column list"
         );
     }
 
     // Derived subquery with column aliases: after rollback, derived alias columns unsupported -> expect empty.
+    #[rstest]
+    // Case 1: Derived subquery column aliases unsupported -> expect empty suggestions for qualified prefix
+    #[case(
+        "SELECT sub.  FROM (SELECT id AS ident, name AS nm FROM a) sub",
+        (12, None),
+        vec![("a", vec![("id", DataType::Uuid), ("name", DataType::Text(None))])],
+        vec![]
+    )]
     #[tokio::test]
-    async fn should_document_gap_derived_column_aliases() {
-        let meta = database(
-            "postgres",
-            &[(
-                "a",
-                vec![("id", DataType::Uuid), ("name", DataType::Text(None))],
-            )],
-        )
-        .await;
-        let sql = "SELECT sub.  FROM (SELECT id AS ident, name AS nm FROM a) sub";
-        let result = Suggestion::search(sql, Cursor::new(12, None), meta)
+    async fn should_document_gap_derived_column_aliases(
+        #[case] sql: &str,
+        #[case] (start, end): (usize, Option<usize>),
+        #[case] tables: Vec<(&str, Vec<(&str, DataType)>)>,
+        #[case] expected: Vec<(&str, DataType)>,
+    ) {
+        let meta = database("postgres", &tables).await;
+        let result = Suggestion::search(sql, Cursor::new(start, end), meta)
             .await
             .expect("derived column alias qualified");
-        let expected: Vec<Suggestion> = vec![]; // unsupported scenario -> empty
+        let expected_columns: Vec<_> = expected
+            .into_iter()
+            .map(|(n, dt)| Suggestion::Column(n.to_string(), dt))
+            .collect();
         assert_eq!(
-            result, expected,
+            result, expected_columns,
             "rollback: derived column alias expansion unsupported; expecting empty suggestions"
         );
     }
 
     // CTE chain: y references x, neither exposed in suggestions (only base table 'a')
+    #[rstest]
+    // Case 1: CTE chain not exposed, only base table columns suggested
+    #[case(
+        "WITH x AS (SELECT id FROM a), y AS (SELECT id FROM x) SELECT  FROM a", (61, None),
+        vec![("a", vec![("id", DataType::Uuid)])],
+        vec![("id", DataType::Uuid)]
+    )]
     #[tokio::test]
-    async fn should_document_gap_cte_chain() {
-        let meta = database("postgres", &[("a", vec![("id", DataType::Uuid)])]).await;
-        let sql = "WITH x AS (SELECT id FROM a), y AS (SELECT id FROM x) SELECT  FROM a";
-        // Cursor after SELECT in final query
-        let result = Suggestion::search(sql, Cursor::new(61, None), meta)
+    async fn should_document_gap_cte_chain(
+        #[case] sql: &str,
+        #[case] (start, end): (usize, Option<usize>),
+        #[case] tables: Vec<(&str, Vec<(&str, DataType)>)>,
+        #[case] expected: Vec<(&str, DataType)>,
+    ) {
+        let meta = database("postgres", &tables).await;
+        let result = Suggestion::search(sql, Cursor::new(start, end), meta)
             .await
             .expect("cte chain");
-        // Need to compute cursor index manually; placeholder left for future precise update.
-        // Expected: only base table 'a' columns.
-        let expected = vec![Suggestion::Column("id".into(), DataType::Uuid)];
+        let expected_columns: Vec<_> = expected
+            .into_iter()
+            .map(|(n, dt)| Suggestion::Column(n.to_string(), dt))
+            .collect();
         assert_eq!(
-            result, expected,
+            result, expected_columns,
             "gap: CTE chain columns not exposed; only underlying base tables available"
         );
     }
 
     // Parenthesized join group alias: (a JOIN b ...) ab -> current behavior: alias 'ab' not resolved, a/b not captured at top depth
+    #[rstest]
+    // Case 1: Parenthesized join group alias not recognized -> empty suggestions
+    #[case(
+        "SELECT ab.  FROM (a JOIN b ON a.aid = b.bid) ab", (11, None),
+        vec![("a", vec![("aid", DataType::Uuid)]), ("b", vec![("bid", DataType::Uuid)])],
+        vec![]
+    )]
     #[tokio::test]
-    async fn should_document_gap_parenthesized_join_group_alias() {
-        let meta = database(
-            "postgres",
-            &[
-                ("a", vec![("aid", DataType::Uuid)]),
-                ("b", vec![("bid", DataType::Uuid)]),
-            ],
-        )
-        .await;
-        let sql = "SELECT ab.  FROM (a JOIN b ON a.aid = b.bid) ab";
-        let result = Suggestion::search(sql, Cursor::new(11, None), meta)
+    async fn should_document_gap_parenthesized_join_group_alias(
+        #[case] sql: &str,
+        #[case] (start, end): (usize, Option<usize>),
+        #[case] tables: Vec<(&str, Vec<(&str, DataType)>)>,
+        #[case] expected: Vec<(&str, DataType)>,
+    ) {
+        let meta = database("postgres", &tables).await;
+        let result = Suggestion::search(sql, Cursor::new(start, end), meta)
             .await
             .expect("parenthesized join group alias");
-        // Current behavior: derived alias not treated (no SELECT inside group) -> empty suggestions.
-        let expected: Vec<Suggestion> = vec![];
+        let expected_columns: Vec<_> = expected
+            .into_iter()
+            .map(|(n, dt)| Suggestion::Column(n.to_string(), dt))
+            .collect();
         assert_eq!(
-            result, expected,
+            result, expected_columns,
             "gap: parenthesized join group alias not recognized for column suggestions"
         );
     }
 
     // INTERSECT termination: first SELECT should only show table a columns
+    #[rstest]
+    // Case 1: INTERSECT first SELECT isolated to table a columns
+    #[case(
+        "SELECT  FROM a INTERSECT SELECT  FROM b",
+        (7, None),
+        vec![("a", vec![("aid", DataType::Uuid)]), ("b", vec![("bid", DataType::Uuid)])],
+        vec![("aid", DataType::Uuid)]
+    )]
     #[tokio::test]
-    async fn should_document_gap_intersect_termination_first() {
-        let meta = database(
-            "postgres",
-            &[
-                ("a", vec![("aid", DataType::Uuid)]),
-                ("b", vec![("bid", DataType::Uuid)]),
-            ],
-        )
-        .await;
-        let sql = "SELECT  FROM a INTERSECT SELECT  FROM b";
-        let first = Suggestion::search(sql, Cursor::new(7, None), meta)
+    async fn should_document_gap_intersect_termination_first(
+        #[case] sql: &str,
+        #[case] (start, end): (usize, Option<usize>),
+        #[case] tables: Vec<(&str, Vec<(&str, DataType)>)>,
+        #[case] expected: Vec<(&str, DataType)>,
+    ) {
+        let meta = database("postgres", &tables).await;
+        let result = Suggestion::search(sql, Cursor::new(start, end), meta)
             .await
             .expect("intersect first");
-        let expected_first = vec![Suggestion::Column("aid".into(), DataType::Uuid)];
+        let expected_columns: Vec<_> = expected
+            .into_iter()
+            .map(|(n, dt)| Suggestion::Column(n.to_string(), dt))
+            .collect();
         assert_eq!(
-            first, expected_first,
+            result, expected_columns,
             "gap: INTERSECT termination should isolate first SELECT scope"
         );
     }
 
     // INTERSECT termination: second SELECT should only show table b columns
+    #[rstest]
+    // Case 1: INTERSECT second SELECT isolated to table b columns
+    #[case(
+        "SELECT  FROM a INTERSECT SELECT  FROM b", (32, None),
+        vec![
+            ("a", vec![("aid", DataType::Uuid)]),
+            ("b", vec![("bid", DataType::Uuid), ("bname", DataType::Text(None))])
+        ],
+        vec![("bid", DataType::Uuid), ("bname", DataType::Text(None))]
+    )]
     #[tokio::test]
-    async fn should_document_gap_intersect_termination_second() {
-        let meta = database(
-            "postgres",
-            &[
-                ("a", vec![("aid", DataType::Uuid)]),
-                (
-                    "b",
-                    vec![("bid", DataType::Uuid), ("bname", DataType::Text(None))],
-                ),
-            ],
-        )
-        .await;
-        let sql = "SELECT  FROM a INTERSECT SELECT  FROM b";
-        let second = Suggestion::search(sql, Cursor::new(32, None), meta)
+    async fn should_document_gap_intersect_termination_second(
+        #[case] sql: &str,
+        #[case] (start, end): (usize, Option<usize>),
+        #[case] tables: Vec<(&str, Vec<(&str, DataType)>)>,
+        #[case] expected: Vec<(&str, DataType)>,
+    ) {
+        let meta = database("postgres", &tables).await;
+        let result = Suggestion::search(sql, Cursor::new(start, end), meta)
             .await
             .expect("intersect second");
-        let expected_second = vec![
-            Suggestion::Column("bid".into(), DataType::Uuid),
-            Suggestion::Column("bname".into(), DataType::Text(None)),
-        ];
+        let expected_columns: Vec<_> = expected
+            .into_iter()
+            .map(|(n, dt)| Suggestion::Column(n.to_string(), dt))
+            .collect();
         assert_eq!(
-            second, expected_second,
+            result, expected_columns,
             "gap: INTERSECT termination should isolate second SELECT scope"
         );
     }
 
     // Qualified derived star alias: (SELECT * FROM a) sub -> qualified 'sub.' returns no columns (star not expanded)
+    #[rstest]
+    // Case 1: Qualified derived star prefix unsupported -> expect empty suggestions
+    #[case(
+        "SELECT sub.  FROM (SELECT * FROM a) sub", (12, None),
+        vec![("a", vec![("id", DataType::Uuid), ("name", DataType::Text(None))])],
+        vec![] // expected empty
+    )]
     #[tokio::test]
-    async fn should_document_gap_qualified_derived_star() {
-        let meta = database(
-            "postgres",
-            &[(
-                "a",
-                vec![("id", DataType::Uuid), ("name", DataType::Text(None))],
-            )],
-        )
-        .await;
-        let sql = "SELECT sub.  FROM (SELECT * FROM a) sub";
-        let result = Suggestion::search(sql, Cursor::new(12, None), meta)
+    async fn should_document_gap_qualified_derived_star(
+        #[case] sql: &str,
+        #[case] (start, end): (usize, Option<usize>),
+        #[case] tables: Vec<(&str, Vec<(&str, DataType)>)>,
+        #[case] expected: Vec<(&str, DataType)>,
+    ) {
+        let meta = database("postgres", &tables).await;
+        let result = Suggestion::search(sql, Cursor::new(start, end), meta)
             .await
             .expect("qualified derived star");
-        let expected: Vec<Suggestion> = vec![];
+        let expected_columns: Vec<_> = expected
+            .into_iter()
+            .map(|(n, dt)| Suggestion::Column(n.to_string(), dt))
+            .collect();
         assert_eq!(
-            result, expected,
+            result, expected_columns,
             "gap: qualified derived star should expand underlying columns but currently yields none"
         );
     }
 
     // Multi-schema duplicate table name aggregation (unqualified)
+    #[rstest]
+    // Case 1: Multi-schema duplicate table aggregation preserves per-schema insertion order
+    #[case(
+        "SELECT  FROM users", (7, None),
+        vec![("users", vec![("id", DataType::Uuid), ("email", DataType::Text(None))])],
+        vec![("id", DataType::Uuid), ("email", DataType::Text(None))]
+    )]
     #[tokio::test]
-    async fn should_recommend_columns_multi_schema_duplicate() {
+    async fn should_recommend_columns_multi_schema_duplicate(
+        #[case] sql: &str,
+        #[case] (start, end): (usize, Option<usize>),
+        // For multi-schema we still need to build both schemas; pass only public portion here.
+        #[case] public_tables: Vec<(&str, Vec<(&str, DataType)>)>,
+        #[case] expected: Vec<(&str, DataType)>,
+    ) {
         let meta = database_multi_schema(
             "postgres",
-            &[(
-                "users",
-                vec![("id", DataType::Uuid), ("email", DataType::Text(None))],
-            )],
+            &public_tables,
             "analytics",
             &[(
                 "users",
@@ -812,57 +803,62 @@ mod tests {
         )
         .await;
 
-        let sql = "SELECT  FROM users";
-        let result = Suggestion::search(sql, Cursor::new(7, None), meta)
+        let result = Suggestion::search(sql, Cursor::new(start, end), meta)
             .await
             .expect("multi-schema duplicate users");
 
-        let expected = vec![
-            Suggestion::Column("id".into(), DataType::Uuid),
-            Suggestion::Column("email".into(), DataType::Text(None)),
+        // Build expected columns in actual output order: public schema first, then analytics schema.
+        let mut expected_columns: Vec<Suggestion> = expected
+            .into_iter()
+            .map(|(n, dt)| Suggestion::Column(n.to_string(), dt))
+            .collect();
+        expected_columns.extend([
             Suggestion::Column("user_id".into(), DataType::Uuid),
             Suggestion::Column("created_at".into(), DataType::Text(None)),
-        ];
+        ]);
         assert_eq!(
-            result, expected,
+            result, expected_columns,
             "multi-schema duplicate table columns should aggregate in declared order per schema insertion"
         );
     }
 
     // Alias shadowing: table named 'fake' and alias 'fake' for 'real' -> qualified fake. should resolve to alias target (real) columns first
+    #[rstest]
+    // Case 1: Alias shadowing a real table name resolves to aliased underlying table
+    #[case(
+        "SELECT fake.  FROM real AS fake, fake", (12, None),
+        vec![
+            ("real", vec![("rid", DataType::Uuid), ("rval", DataType::Text(None))]),
+            ("fake", vec![("fid", DataType::Uuid)])
+        ],
+        vec![("rid", DataType::Uuid), ("rval", DataType::Text(None))]
+    )]
     #[tokio::test]
-    async fn should_prefer_alias_over_same_named_table() {
-        let meta = database(
-            "postgres",
-            &[
-                (
-                    "real",
-                    vec![("rid", DataType::Uuid), ("rval", DataType::Text(None))],
-                ),
-                ("fake", vec![("fid", DataType::Uuid)]),
-            ],
-        )
-        .await;
+    async fn should_prefer_alias_over_same_named_table(
+        #[case] sql: &str,
+        #[case] (start, end): (usize, Option<usize>),
+        #[case] tables: Vec<(&str, Vec<(&str, DataType)>)>,
+        #[case] expected: Vec<(&str, DataType)>,
+    ) {
+        let meta = database("postgres", &tables).await;
 
         // real AS fake introduces alias 'fake' -> should map to 'real', not the actual 'fake' table when qualified.
-        let sql = "SELECT fake.  FROM real AS fake, fake";
-        // Cursor right after 'fake.' in projection
-        let cursor = Cursor::new(12, None);
-        let result = Suggestion::search(sql, cursor, meta)
+        let result = Suggestion::search(sql, Cursor::new(start, end), meta)
             .await
             .expect("alias shadowing resolution");
 
-        let expected = vec![
-            Suggestion::Column("rid".into(), DataType::Uuid),
-            Suggestion::Column("rval".into(), DataType::Text(None)),
-        ];
+        let expected_columns: Vec<_> = expected
+            .into_iter()
+            .map(|(n, dt)| Suggestion::Column(n.to_string(), dt))
+            .collect();
         assert_eq!(
-            result, expected,
+            result, expected_columns,
             "alias shadowing: qualified alias should return underlying aliased table columns, not same-named table's columns"
         );
     }
+
     #[rstest]
-    // First SELECT in UNION should only see columns from first table
+    // Case 1: First SELECT in UNION should only see columns from first table
     #[case(
         "SELECT  FROM a UNION SELECT  FROM b",
         (7, None),
@@ -874,9 +870,9 @@ mod tests {
             ("aid", DataType::Uuid)
         ]
     )]
-    // Second SELECT in UNION should only see columns from second table
+    // Case 2: SELECT in UNION should only see columns from second table
     #[case(
-        "SELECT  FROM a UNION SELECT  FROM b",
+        "SELECT * FROM a UNION SELECT  FROM b",
         (29, None),
         vec![
             ("a", vec![("aid", DataType::Uuid)]),
@@ -887,7 +883,6 @@ mod tests {
             ("bname", DataType::Text(None))
         ]
     )]
-    // (Removed unsupported derived table and CTE test cases for unqualified UNION/CTE block)
     #[tokio::test]
     async fn should_recommend_columns_union_and_cte(
         #[case] sql: &str,
@@ -909,35 +904,38 @@ mod tests {
         );
     }
 
-    // Simple qualified UNION test (second SELECT scope) without rstest cases
-    #[tokio::test]
-    async fn should_recommend_qualified_columns_union_and_cte() {
-        // Given: two tables a and b
-        let tables = vec![
+    #[rstest]
+    // Case 1: Qualified UNION second SELECT scope suggestions for table b
+    #[case(
+        "SELECT aid FROM a UNION SELECT b.  FROM b",
+        (29, None),
+        vec![
             ("a", vec![("aid", DataType::Uuid)]),
-            (
-                "b",
-                vec![("bid", DataType::Uuid), ("bname", DataType::Text(None))],
-            ),
-        ];
+            ("b", vec![("bid", DataType::Uuid), ("bname", DataType::Text(None))])
+        ],
+        vec![("bid", DataType::Uuid), ("bname", DataType::Text(None))]
+    )]
+    #[tokio::test]
+    async fn should_recommend_qualified_columns_union_and_cte(
+        #[case] sql: &str,
+        #[case] (start, end): (usize, Option<usize>),
+        #[case] tables: Vec<(&str, Vec<(&str, DataType)>)>,
+        #[case] expected: Vec<(&str, DataType)>,
+    ) {
         let meta = database("postgres", &tables).await;
-        // SQL with UNION; we place cursor in second SELECT after 'b.'
-        let sql = "SELECT aid FROM a UNION SELECT b.  FROM b";
-        // Position after 'b.' (index 29 for this string)
-        let cursor = Cursor::new(29, None);
 
         // When
-        let result = Suggestion::search(sql, cursor, meta)
+        let result = Suggestion::search(sql, Cursor::new(start, end), meta)
             .await
             .expect("qualified union second select");
 
         // Then: expect only columns from table b
-        let expected = vec![
-            Suggestion::Column("bid".into(), DataType::Uuid),
-            Suggestion::Column("bname".into(), DataType::Text(None)),
-        ];
+        let expected_columns: Vec<_> = expected
+            .into_iter()
+            .map(|(n, dt)| Suggestion::Column(n.to_string(), dt))
+            .collect();
         assert_eq!(
-            result, expected,
+            result, expected_columns,
             "qualified UNION second SELECT suggestions mismatch"
         );
     }
