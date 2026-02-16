@@ -1,5 +1,6 @@
 use super::*;
 use crate::*;
+use std::collections::BTreeMap;
 
 #[derive(Debug)]
 pub struct Table {
@@ -13,7 +14,7 @@ impl Default for Table {
     fn default() -> Self {
         Table {
             name: String::new(),
-            columns: Data::new(HashMap::new()),
+            columns: Data::new(BTreeMap::new()),
             column_order: Vec::new(),
         }
     }
@@ -23,14 +24,14 @@ impl Table {
     pub fn new(name: impl Into<String>) -> Self {
         Self {
             name: name.into(),
-            columns: Data::new(HashMap::new()),
+            columns: Data::new(BTreeMap::new()),
             column_order: Vec::new(),
         }
     }
 
     pub fn new_with(
         name: impl Into<String>,
-        columns: impl Into<HashMap<String, DataType>>,
+        columns: impl Into<BTreeMap<String, DataType>>,
     ) -> Self {
         let columns_map = columns.into();
         let order = columns_map.keys().cloned().collect::<Vec<_>>();
@@ -47,7 +48,7 @@ impl Table {
         name: impl Into<String>,
         columns: impl IntoIterator<Item = (impl Into<String>, DataType)>,
     ) -> Self {
-        let mut map = HashMap::new();
+        let mut map = BTreeMap::new();
         let mut order = Vec::new();
         for (n, dt) in columns.into_iter() {
             let name_str = n.into();

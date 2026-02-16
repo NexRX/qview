@@ -1,5 +1,5 @@
-use super::*;
 use crate::*;
+use std::collections::BTreeMap;
 
 #[derive(Clone, Debug)]
 pub struct Column {
@@ -15,7 +15,7 @@ impl Column {
         }
     }
 
-    pub fn new_map(columns: impl Into<HashMap<String, DataType>>) -> HashMap<String, Self> {
+    pub fn new_map(columns: impl Into<BTreeMap<String, DataType>>) -> BTreeMap<String, Self> {
         columns
             .into()
             .into_iter()

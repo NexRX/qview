@@ -1,4 +1,5 @@
 use super::*;
+use std::collections::BTreeMap;
 
 #[derive(Debug)]
 pub struct Database {
@@ -10,7 +11,7 @@ impl Database {
     pub fn new(name: impl Into<String>) -> Self {
         Self {
             name: name.into(),
-            schemas: Data::new(HashMap::new()),
+            schemas: Data::new(BTreeMap::new()),
         }
     }
 

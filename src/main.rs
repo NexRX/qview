@@ -1,6 +1,6 @@
 reexport!(testing, test);
 reexport!(logic);
-reexport!(autocomplete);
+reexport!(suggestion);
 reexport!(metadata);
 reexport!(sql);
 #[allow(unused_imports)]

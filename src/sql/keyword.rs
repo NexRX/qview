@@ -32,11 +32,33 @@ pub enum Keyword {
     Union,
     Except,
     Intersect,
+    With,
+    Recursive,
+    Only,
+    Returning,
+    Left,
+    Right,
+    Full,
+    Outer,
+    Inner,
+    Cross,
+    Natural,
+    Lateral,
+    Using,
+    Values,
+    // DML keywords
+    Insert,
+    Into,
+    Update,
+    Set,
+    Delete,
+    Default,
 }
 
 impl Keyword {
-    /// Keywords that terminate a statement.
-    pub const TERMINATORS: [Self; 9] = [
+    /// Keywords that terminate the FROM clause table extraction.
+    /// Note: ON is NOT a terminator - we handle it specially to support multi-table JOINs.
+    pub const TERMINATORS: [Self; 8] = [
         Keyword::Where,
         Keyword::Group,
         Keyword::Order,
@@ -45,7 +67,17 @@ impl Keyword {
         Keyword::Union,
         Keyword::Except,
         Keyword::Intersect,
-        Keyword::On,
+    ];
+
+    /// Keywords that can appear before JOIN (join type modifiers).
+    pub const JOIN_MODIFIERS: [Self; 7] = [
+        Keyword::Left,
+        Keyword::Right,
+        Keyword::Full,
+        Keyword::Outer,
+        Keyword::Inner,
+        Keyword::Cross,
+        Keyword::Natural,
     ];
 
     /// Attempt to classify a *lower‑cased* word slice into a `Keyword`.
@@ -70,6 +102,26 @@ impl Keyword {
             "union" => Union,
             "except" => Except,
             "intersect" => Intersect,
+            "with" => With,
+            "recursive" => Recursive,
+            "only" => Only,
+            "returning" => Returning,
+            "left" => Left,
+            "right" => Right,
+            "full" => Full,
+            "outer" => Outer,
+            "inner" => Inner,
+            "cross" => Cross,
+            "natural" => Natural,
+            "lateral" => Lateral,
+            "using" => Using,
+            "values" => Values,
+            "insert" => Insert,
+            "into" => Into,
+            "update" => Update,
+            "set" => Set,
+            "delete" => Delete,
+            "default" => Default,
             _ => return None,
         };
         Some(kw)
@@ -92,6 +144,26 @@ impl Keyword {
             Union => "union",
             Except => "except",
             Intersect => "intersect",
+            With => "with",
+            Recursive => "recursive",
+            Only => "only",
+            Returning => "returning",
+            Left => "left",
+            Right => "right",
+            Full => "full",
+            Outer => "outer",
+            Inner => "inner",
+            Cross => "cross",
+            Natural => "natural",
+            Lateral => "lateral",
+            Using => "using",
+            Values => "values",
+            Insert => "insert",
+            Into => "into",
+            Update => "update",
+            Set => "set",
+            Delete => "delete",
+            Default => "default",
         }
     }
 }
@@ -122,6 +194,26 @@ mod tests {
             "union",
             "except",
             "intersect",
+            "with",
+            "recursive",
+            "only",
+            "returning",
+            "left",
+            "right",
+            "full",
+            "outer",
+            "inner",
+            "cross",
+            "natural",
+            "lateral",
+            "using",
+            "values",
+            "insert",
+            "into",
+            "update",
+            "set",
+            "delete",
+            "default",
         ] {
             assert!(Keyword::from_lower(w).is_some(), "{w} should be recognized");
         }
@@ -129,7 +221,7 @@ mod tests {
 
     #[test]
     fn rejects_unknown_words() {
-        for w in ["foo", "bar", "inner", "outer", "cross", "random"] {
+        for w in ["foo", "bar", "random", "having", "window"] {
             assert!(
                 Keyword::from_lower(w).is_none(),
                 "{w} should NOT be recognized"
@@ -153,6 +245,26 @@ mod tests {
             Keyword::Union,
             Keyword::Except,
             Keyword::Intersect,
+            Keyword::With,
+            Keyword::Recursive,
+            Keyword::Only,
+            Keyword::Returning,
+            Keyword::Left,
+            Keyword::Right,
+            Keyword::Full,
+            Keyword::Outer,
+            Keyword::Inner,
+            Keyword::Cross,
+            Keyword::Natural,
+            Keyword::Lateral,
+            Keyword::Using,
+            Keyword::Values,
+            Keyword::Insert,
+            Keyword::Into,
+            Keyword::Update,
+            Keyword::Set,
+            Keyword::Delete,
+            Keyword::Default,
         ] {
             assert_eq!(kw.to_string(), kw.as_str());
         }
