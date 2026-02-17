@@ -1,7 +1,7 @@
 use crate::*;
 use std::collections::BTreeMap;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Column {
     pub name: String,
     pub data_type: DataType,

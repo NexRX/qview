@@ -1,7 +1,7 @@
 //! Utility functions for SQL autocomplete suggestion.
 
 use crate::sql::{token::Token, token_kind::TokenKind};
-use crate::{DataType, Database, Suggestion, Suggestions};
+use crate::{Column, DataType, Database, Suggestion, Suggestions};
 
 /// Skip past a parenthesized expression starting at `start` (one past the opening paren).
 /// Returns the index one past the closing paren.
@@ -22,10 +22,7 @@ pub(super) fn skip_parens(tokens: &[Token], start: usize) -> usize {
 
 /// Parse column definitions from a parenthesized list (e.g., `(col1, col2, col3)`).
 /// Returns the columns and the index after the closing paren.
-pub(super) fn parse_column_defs(
-    tokens: &[Token],
-    start: usize,
-) -> (Vec<(String, DataType)>, usize) {
+pub(super) fn parse_column_defs(tokens: &[Token], start: usize) -> (Vec<Column>, usize) {
     if !tokens
         .get(start)
         .is_some_and(|t| matches!(t.kind, TokenKind::ParenOpen))
@@ -43,7 +40,7 @@ pub(super) fn parse_column_defs(
             TokenKind::Comma => i += 1,
             _ => {
                 if let Some(col) = t.ident() {
-                    cols.push((col.to_string(), DataType::Unknown));
+                    cols.push(Column::new(col, DataType::Unknown));
                 }
                 i += 1;
             }
@@ -95,12 +92,7 @@ pub(super) fn qualified_prefix_from_pos(
 pub(super) async fn gather_columns(meta: &Database, table: &str, out: &mut Suggestions) {
     for schema in meta.schemas.read().await.values() {
         if let Some(t) = schema.tables.read().await.get(table) {
-            out.extend(
-                t.ordered_columns()
-                    .await
-                    .into_iter()
-                    .map(|(c, d)| Suggestion::Column(c, d)),
-            );
+            out.extend(t.columns.values().cloned().map(Suggestion::Column));
         }
     }
 }

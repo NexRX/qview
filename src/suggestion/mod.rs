@@ -12,7 +12,7 @@ mod suggestion_tests;
 mod types;
 
 use crate::sql::tokenizer::tokenize;
-use crate::{Cursor, DataType, Database, Result};
+use crate::{Column, Cursor, Database, Result};
 
 /// An autocomplete suggestion. Variants represent different kinds of things that can be suggested
 /// while the user types a SQL query: raw keywords, fully qualified columns and tables.
@@ -20,8 +20,8 @@ use crate::{Cursor, DataType, Database, Result};
 pub enum Suggestion {
     #[display("{_0}")]
     Keyword(String),
-    #[display("{_0}::{_1}")]
-    Column(String, DataType),
+    #[display("{}::{}", _0.name, _0.data_type)]
+    Column(Column),
     #[display("{schema}.{name}")]
     Table { schema: String, name: String },
 }

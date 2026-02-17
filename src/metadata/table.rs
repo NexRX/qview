@@ -2,30 +2,17 @@ use super::*;
 use crate::*;
 use std::collections::BTreeMap;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Table {
     pub name: String,
-    pub columns: Data<Column>,
-    // Preserve insertion order of columns as provided at construction time.
-    pub column_order: Vec<String>,
-}
-
-impl Default for Table {
-    fn default() -> Self {
-        Table {
-            name: String::new(),
-            columns: Data::new(BTreeMap::new()),
-            column_order: Vec::new(),
-        }
-    }
+    pub columns: BTreeMap<String, Column>,
 }
 
 impl Table {
     pub fn new(name: impl Into<String>) -> Self {
         Self {
             name: name.into(),
-            columns: Data::new(BTreeMap::new()),
-            column_order: Vec::new(),
+            columns: BTreeMap::new(),
         }
     }
 
@@ -34,11 +21,9 @@ impl Table {
         columns: impl Into<BTreeMap<String, DataType>>,
     ) -> Self {
         let columns_map = columns.into();
-        let order = columns_map.keys().cloned().collect::<Vec<_>>();
         Self {
             name: name.into(),
-            columns: Data::new(Column::new_map(columns_map)),
-            column_order: order,
+            columns: Column::new_map(columns_map),
         }
     }
 
@@ -57,17 +42,25 @@ impl Table {
         }
         Self {
             name: name.into(),
-            columns: Data::new(Column::new_map(map)),
-            column_order: order,
+            columns: Column::new_map(map),
         }
     }
 
-    /// Convenience accessor returning columns in preserved order.
-    pub async fn ordered_columns(&self) -> Vec<(String, DataType)> {
-        let guard = self.columns.read().await;
-        self.column_order
-            .iter()
-            .filter_map(|n| guard.get(n).map(|c| (n.clone(), c.data_type.clone())))
-            .collect()
+    pub async fn from_postgres(conn: &mut PgConnection, table: &str) -> sqlx::Result<Self> {
+        let columns: BTreeMap<String, DataType> = sqlx::query!(
+            "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = $1 ORDER BY ordinal_position",
+            table
+        )
+        .fetch_all(&mut *conn)
+        .await?
+        .into_iter()
+        .filter_map(|row| match (row.column_name, row.data_type) {
+            (Some(name), Some(data_type)) => Some((name, data_type)),
+            _ => None,
+        })
+        .map(|(name, data_type)| (name, DataType::from(data_type)))
+        .collect();
+
+        Ok(Self::new_with(table, columns))
     }
 }

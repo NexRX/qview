@@ -1,3 +1,6 @@
+use itertools::Itertools;
+use sqlx::PgConnection;
+
 use super::*;
 use std::collections::BTreeMap;
 
@@ -27,8 +30,6 @@ impl Database {
             .entry(table_name.clone())
             .or_insert_with(|| Table::new(table_name.clone())) // Create/return table
             .columns
-            .write()
-            .await
             .insert(column.name.clone(), column); // Insert / overwrite column
     }
 
@@ -50,5 +51,27 @@ impl Database {
             .write()
             .await
             .insert(schema.name.clone(), schema);
+    }
+
+    pub async fn from_postgres(conn: &mut PgConnection, database: &str) -> sqlx::Result<Database> {
+        let mut metadata = Self::new(database.to_string());
+
+        let schemas: Vec<String> = sqlx::query_scalar!(
+            "SELECT schema_name FROM information_schema.schemata WHERE catalog_name = $1",
+            database
+        )
+        .fetch_all(&mut *conn)
+        .await?
+        .into_iter()
+        .flatten()
+        .collect_vec();
+
+        for schema in schemas {
+            metadata
+                .insert_schema(Schema::from_postgres(conn, &schema).await?)
+                .await;
+        }
+
+        Ok(metadata)
     }
 }

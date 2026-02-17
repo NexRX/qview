@@ -1,6 +1,6 @@
 //! Internal types for SQL autocomplete suggestion.
 
-use crate::DataType;
+use crate::Column;
 
 /// Statement position info: (token_index, parenthesis_depth)
 pub(super) type StmtPos = Option<(usize, i32)>;
@@ -14,9 +14,9 @@ pub(super) type StatementPositions = (StmtPos, StmtPos, StmtPos, StmtPos, Option
 pub(super) struct DerivedTable {
     /// The alias for this derived table/CTE.
     pub alias: String,
-    /// Columns projected by this derived table (name, type).
+    /// Columns projected by this derived table.
     /// If we can't determine the columns, this will be empty.
-    pub columns: Vec<(String, DataType)>,
+    pub columns: Vec<Column>,
 }
 
 /// Represents the type of DML statement being analyzed.

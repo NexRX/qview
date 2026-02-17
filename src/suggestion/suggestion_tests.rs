@@ -517,14 +517,16 @@ mod unqualified_column_suggestions {
         #[case] expected: Vec<(&str, DataType)>,
     ) {
         let meta = db(&tables).await;
-        let result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
             .await
             .expect("suggestion search should not error");
+        result.sort();
 
-        let expected_columns: Vec<_> = expected
+        let mut expected_columns: Vec<_> = expected
             .into_iter()
-            .map(|(name, dt)| Suggestion::Column(name.to_string(), dt))
+            .map(|(name, dt)| Suggestion::Column(Column::new(name, dt)))
             .collect();
+        expected_columns.sort();
 
         assert_eq!(result, expected_columns);
     }
@@ -686,14 +688,16 @@ mod subquery_isolation {
         #[case] expected: Vec<(&str, DataType)>,
     ) {
         let meta = db(&tables).await;
-        let result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
             .await
             .expect("suggestion search should not error");
+        result.sort();
 
-        let expected_columns: Vec<_> = expected
+        let mut expected_columns: Vec<_> = expected
             .into_iter()
-            .map(|(name, dt)| Suggestion::Column(name.to_string(), dt))
+            .map(|(name, dt)| Suggestion::Column(Column::new(name, dt)))
             .collect();
+        expected_columns.sort();
 
         assert_eq!(
             result, expected_columns,
@@ -921,14 +925,16 @@ mod qualified_column_suggestions {
         #[case] expected: Vec<(&str, DataType)>,
     ) {
         let meta = db(&tables).await;
-        let result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
             .await
             .expect("suggestion search should not error");
+        result.sort();
 
-        let expected_columns: Vec<_> = expected
+        let mut expected_columns: Vec<_> = expected
             .into_iter()
-            .map(|(name, dt)| Suggestion::Column(name.to_string(), dt))
+            .map(|(name, dt)| Suggestion::Column(Column::new(name, dt)))
             .collect();
+        expected_columns.sort();
 
         assert_eq!(
             result, expected_columns,
@@ -955,14 +961,16 @@ mod qualified_column_suggestions {
         #[case] expected: Vec<(&str, DataType)>,
     ) {
         let meta = db(&tables).await;
-        let result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
             .await
             .expect("alias shadowing resolution");
+        result.sort();
 
-        let expected_columns: Vec<_> = expected
+        let mut expected_columns: Vec<_> = expected
             .into_iter()
-            .map(|(name, dt)| Suggestion::Column(name.to_string(), dt))
+            .map(|(name, dt)| Suggestion::Column(Column::new(name, dt)))
             .collect();
+        expected_columns.sort();
 
         assert_eq!(
             result, expected_columns,
@@ -1032,14 +1040,16 @@ mod union_and_set_operations {
         #[case] expected: Vec<(&str, DataType)>,
     ) {
         let meta = db(&tables).await;
-        let result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
             .await
             .expect("set operation scope");
+        result.sort();
 
-        let expected_columns: Vec<_> = expected
+        let mut expected_columns: Vec<_> = expected
             .into_iter()
-            .map(|(name, dt)| Suggestion::Column(name.to_string(), dt))
+            .map(|(name, dt)| Suggestion::Column(Column::new(name, dt)))
             .collect();
+        expected_columns.sort();
 
         assert_eq!(
             result, expected_columns,
@@ -1086,14 +1096,16 @@ mod multi_schema {
             Some((other_schema, &other_tables)),
         )
         .await;
-        let result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
             .await
             .expect("multi-schema aggregation");
+        result.sort();
 
-        let expected_columns: Vec<_> = expected
+        let mut expected_columns: Vec<_> = expected
             .into_iter()
-            .map(|(name, dt)| Suggestion::Column(name.to_string(), dt))
+            .map(|(name, dt)| Suggestion::Column(Column::new(name, dt)))
             .collect();
+        expected_columns.sort();
 
         assert_eq!(
             result, expected_columns,
@@ -1218,14 +1230,16 @@ mod known_gaps {
         #[case] gap_description: &str,
     ) {
         let meta = db(&tables).await;
-        let result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
             .await
             .expect("known gap test");
+        result.sort();
 
-        let expected_columns: Vec<_> = expected
+        let mut expected_columns: Vec<_> = expected
             .into_iter()
-            .map(|(name, dt)| Suggestion::Column(name.to_string(), dt))
+            .map(|(name, dt)| Suggestion::Column(Column::new(name, dt)))
             .collect();
+        expected_columns.sort();
 
         assert_eq!(result, expected_columns, "gap: {gap_description}");
     }
@@ -1248,14 +1262,16 @@ mod known_gaps {
         #[case] gap_description: &str,
     ) {
         let meta = db(&tables).await;
-        let result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
             .await
             .expect("CTE gap test");
+        result.sort();
 
-        let expected_columns: Vec<_> = expected
+        let mut expected_columns: Vec<_> = expected
             .into_iter()
-            .map(|(name, dt)| Suggestion::Column(name.to_string(), dt))
+            .map(|(name, dt)| Suggestion::Column(Column::new(name, dt)))
             .collect();
+        expected_columns.sort();
 
         assert_eq!(result, expected_columns, "gap: {gap_description}");
     }
@@ -1476,14 +1492,16 @@ mod postgres_edge_cases {
         #[case] expected: Vec<(&str, DataType)>,
     ) {
         let meta = db(&tables).await;
-        let result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
             .await
             .expect("postgres edge case");
+        result.sort();
 
-        let expected_columns: Vec<_> = expected
+        let mut expected_columns: Vec<_> = expected
             .into_iter()
-            .map(|(name, dt)| Suggestion::Column(name.to_string(), dt))
+            .map(|(name, dt)| Suggestion::Column(Column::new(name, dt)))
             .collect();
+        expected_columns.sort();
 
         assert_eq!(result, expected_columns, "postgres edge case mismatch");
     }
@@ -1580,14 +1598,16 @@ mod dml_statements {
             #[case] expected: Vec<(&str, DataType)>,
         ) {
             let meta = db(&tables).await;
-            let result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+            let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
                 .await
                 .expect("INSERT statement test");
+            result.sort();
 
-            let expected_columns: Vec<_> = expected
+            let mut expected_columns: Vec<_> = expected
                 .into_iter()
-                .map(|(name, dt)| Suggestion::Column(name.to_string(), dt))
+                .map(|(name, dt)| Suggestion::Column(Column::new(name, dt)))
                 .collect();
+            expected_columns.sort();
 
             assert_eq!(
                 result, expected_columns,
@@ -1678,14 +1698,16 @@ mod dml_statements {
             #[case] expected: Vec<(&str, DataType)>,
         ) {
             let meta = db(&tables).await;
-            let result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+            let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
                 .await
                 .expect("UPDATE statement test");
+            result.sort();
 
-            let expected_columns: Vec<_> = expected
+            let mut expected_columns: Vec<_> = expected
                 .into_iter()
-                .map(|(name, dt)| Suggestion::Column(name.to_string(), dt))
+                .map(|(name, dt)| Suggestion::Column(Column::new(name, dt)))
                 .collect();
+            expected_columns.sort();
 
             assert_eq!(
                 result, expected_columns,
@@ -1765,14 +1787,16 @@ mod dml_statements {
             #[case] expected: Vec<(&str, DataType)>,
         ) {
             let meta = db(&tables).await;
-            let result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+            let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
                 .await
                 .expect("DELETE statement test");
+            result.sort();
 
-            let expected_columns: Vec<_> = expected
+            let mut expected_columns: Vec<_> = expected
                 .into_iter()
-                .map(|(name, dt)| Suggestion::Column(name.to_string(), dt))
+                .map(|(name, dt)| Suggestion::Column(Column::new(name, dt)))
                 .collect();
+            expected_columns.sort();
 
             assert_eq!(
                 result, expected_columns,
@@ -1874,14 +1898,16 @@ mod dml_statements {
             #[case] expected: Vec<(&str, DataType)>,
         ) {
             let meta = db(&tables).await;
-            let result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+            let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
                 .await
                 .expect("DML edge case test");
+            result.sort();
 
-            let expected_columns: Vec<_> = expected
+            let mut expected_columns: Vec<_> = expected
                 .into_iter()
-                .map(|(name, dt)| Suggestion::Column(name.to_string(), dt))
+                .map(|(name, dt)| Suggestion::Column(Column::new(name, dt)))
                 .collect();
+            expected_columns.sort();
 
             assert_eq!(result, expected_columns, "DML edge case mismatch");
         }

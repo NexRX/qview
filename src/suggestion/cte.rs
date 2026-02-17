@@ -1,7 +1,7 @@
 //! CTE and subquery column extraction.
 
 use crate::sql::{keyword::Keyword, token::Token, token_kind::TokenKind};
-use crate::{DataType, Database};
+use crate::{Column, DataType, Database};
 
 use super::helpers::skip_parens;
 use super::types::DerivedTable;
@@ -73,10 +73,7 @@ pub(super) async fn parse_ctes(tokens: &[Token], meta: &Database) -> Vec<Derived
 }
 
 /// Extract columns from a subquery's SELECT projection.
-pub(super) async fn extract_subquery_columns(
-    tokens: &[Token],
-    _meta: &Database,
-) -> Vec<(String, DataType)> {
+pub(super) async fn extract_subquery_columns(tokens: &[Token], _meta: &Database) -> Vec<Column> {
     let mut columns = Vec::new();
     let Some(select_idx) = tokens.iter().position(|t| t.is_keyword(Keyword::Select)) else {
         return columns;
@@ -117,7 +114,7 @@ pub(super) async fn extract_subquery_columns(
             if tokens.get(i).is_some_and(|t| t.is_keyword(Keyword::As)) {
                 i += 1;
                 if let Some(alias) = tokens.get(i).and_then(|t| t.ident()) {
-                    columns.push((alias.to_string(), DataType::Unknown));
+                    columns.push(Column::new(alias, DataType::Unknown));
                     i += 1;
                 }
             }
@@ -206,7 +203,7 @@ pub(super) async fn extract_subquery_columns(
             });
 
         if let Some(name) = col_name {
-            columns.push((name, DataType::Unknown));
+            columns.push(Column::new(name, DataType::Unknown));
         }
         if i < projection_end && matches!(tokens.get(i).map(|t| &t.kind), Some(TokenKind::Comma)) {
             i += 1;

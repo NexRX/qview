@@ -27,17 +27,9 @@ pub(super) async fn search_select(
     if let Some(prefix) = qualified_prefix(sql, tokens[select_idx].end, cursor_pos) {
         let mut out = Vec::new();
         if let Some(dt) = derived_tables.iter().find(|dt| dt.alias == prefix) {
-            out.extend(
-                dt.columns
-                    .iter()
-                    .map(|(c, d)| Suggestion::Column(c.clone(), d.clone())),
-            );
+            out.extend(dt.columns.iter().cloned().map(Suggestion::Column));
         } else if let Some(cte) = ctes.iter().find(|c| c.alias == prefix) {
-            out.extend(
-                cte.columns
-                    .iter()
-                    .map(|(c, d)| Suggestion::Column(c.clone(), d.clone())),
-            );
+            out.extend(cte.columns.iter().cloned().map(Suggestion::Column));
         } else {
             gather_columns(meta, aliases.get(&prefix).unwrap_or(&prefix), &mut out).await;
         }
@@ -46,18 +38,10 @@ pub(super) async fn search_select(
 
     let mut out = Vec::new();
     for dt in &derived_tables {
-        out.extend(
-            dt.columns
-                .iter()
-                .map(|(c, d)| Suggestion::Column(c.clone(), d.clone())),
-        );
+        out.extend(dt.columns.iter().cloned().map(Suggestion::Column));
     }
     for cte in ctes.iter().filter(|c| tables.contains(&c.alias)) {
-        out.extend(
-            cte.columns
-                .iter()
-                .map(|(c, d)| Suggestion::Column(c.clone(), d.clone())),
-        );
+        out.extend(cte.columns.iter().cloned().map(Suggestion::Column));
     }
     for tbl in tables
         .iter()
