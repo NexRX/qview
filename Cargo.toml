@@ -3,6 +3,10 @@ name = "qview"
 version = "0.1.0"
 edition = "2024"
 
+[workspace]
+members = ["demo", "demo/src-tauri"]
+resolver = "2"
+
 [dependencies]
 confique = "0.4.0"
 derive_more = { version = "2.0.1", features = ["full"] }
