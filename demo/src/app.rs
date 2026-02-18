@@ -1,12 +1,6 @@
-use demo_lib::{invoke, VERSION};
+use demo_lib::{call_greet, VERSION};
 use leptos::task::spawn_local;
 use leptos::{ev::SubmitEvent, prelude::*};
-use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize)]
-struct GreetArgs<'a> {
-    name: &'a str,
-}
 
 #[component]
 pub fn App() -> impl IntoView {
@@ -28,9 +22,8 @@ pub fn App() -> impl IntoView {
 
             leptos::logging::log!("Yo {}...", VERSION);
 
-            let args = serde_wasm_bindgen::to_value(&GreetArgs { name: &name }).unwrap();
             // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-            let new_msg = invoke("greet", args).await.as_string().unwrap();
+            let new_msg = call_greet(&name).await;
             set_greet_msg.set(new_msg);
         });
     };

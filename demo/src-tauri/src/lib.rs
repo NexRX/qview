@@ -1,6 +1,8 @@
 #[cfg(feature = "wasm-client")]
 use wasm_bindgen::prelude::*;
 
+use tauri_bridge_macros::tauri_bridge;
+
 pub const VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), "-BACKEND");
 
 #[cfg(feature = "wasm-client")]
@@ -11,9 +13,8 @@ extern "C" {
 }
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-#[cfg(all(feature = "backend", not(target_arch = "wasm32")))]
-#[tauri::command]
-fn greet(name: &str) -> String {
+#[tauri_bridge]
+pub fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
 

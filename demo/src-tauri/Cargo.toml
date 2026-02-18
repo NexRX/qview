@@ -7,8 +7,8 @@ edition = "2021"
 
 [features]
 default = ["backend"]
-backend = []
-wasm-client = ["wasm-bindgen", "wasm-bindgen-futures", "serde-wasm-bindgen"]
+backend = ["tauri-bridge-macros"]
+wasm-client = ["wasm-bindgen", "wasm-bindgen-futures", "serde-wasm-bindgen", "tauri-bridge-macros"]
 
 [lib]
 # The `_lib` suffix may seem redundant but it is necessary
@@ -27,6 +27,9 @@ serde_json = "1"
 wasm-bindgen = { version = "0.2", optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
 serde-wasm-bindgen = { version = "0.6", optional = true }
+
+# Macro for generating Tauri command bindings
+tauri-bridge-macros = { path = "../tauri-bridge-macros", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tauri = { version = "2", features = [] }

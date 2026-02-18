@@ -1054,6 +1054,7 @@ dependencies = [
  "serde-wasm-bindgen",
  "serde_json",
  "tauri",
+ "tauri-bridge-macros",
  "tauri-build",
  "tauri-plugin-opener",
  "wasm-bindgen",
@@ -5603,6 +5604,16 @@ dependencies = [
  "webview2-com",
  "window-vibrancy",
  "windows",
+]
+
+[[package]]
+name = "tauri-bridge-macros"
+version = "0.1.0"
+dependencies = [
+ "convert_case 0.7.1",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.108",
 ]
 
 [[package]]
