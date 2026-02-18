@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [workspace]
-members = ["demo", "demo/src-tauri", "demo/tauri-bridge-macros"]
+members = ["demo"]
 resolver = "2"
 
 [dependencies]
