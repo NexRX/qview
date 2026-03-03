@@ -1,5 +1,6 @@
 use crate::*;
 use sqlx::{PgPool, postgres::PgPoolOptions};
+use tracing::{debug, error, trace};
 use std::time::{Duration, Instant};
 use testcontainers::{
     ContainerRequest, GenericImage, ImageExt,
@@ -80,7 +81,7 @@ fn image() -> ContainerRequest<GenericImage> {
         gb * 1024 * 1024 * 1024
     }
 
-    let mut image = GenericImage::new("kartoza/postgis", "14")
+    GenericImage::new("kartoza/postgis", "14")
         .with_exposed_port(5432.tcp())
         .with_wait_for(WaitFor::message_on_stderr("listening on IPv6 address"))
         .with_wait_for(WaitFor::message_on_stderr(
@@ -89,17 +90,9 @@ fn image() -> ContainerRequest<GenericImage> {
         .with_copy_to("/docker-entrypoint-initdb.d/init.sql", PG_INIT_SQL.to_vec())
         .with_env_var("POSTGRES_USER", PG_USER)
         .with_env_var("POSTGRES_PASSWORD", PG_PASS)
-        .with_env_var("POSTGRES_DB", "postgres");
-
-    if config().container_logs {
-        image = image.with_log_consumer(|line: &LogFrame| trace!("[Container Logs] {line:?}"));
-    }
-
-    if config().container_ramdisked {
-        image = image // 4x speedup 🔥🔥🔥🔥
-            .with_env_var("PGDATA", "/dev/shm/pgdata")
-            .with_shm_size(gb(2)); // NOTE: Increase if test db runs out of space
-    }
-
-    image.with_startup_timeout(Duration::from_secs(60))
+        .with_env_var("POSTGRES_DB", "postgres")
+        .with_log_consumer(|line: &LogFrame| trace!("[Container Logs] {line:?}"))
+        .with_env_var("PGDATA", "/dev/shm/pgdata")
+        .with_shm_size(gb(2)) // NOTE: Increase if test db runs out of space
+        .with_startup_timeout(Duration::from_secs(60))
 }

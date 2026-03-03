@@ -31,7 +31,7 @@ pub(super) async fn search_select(
         } else if let Some(cte) = ctes.iter().find(|c| c.alias == prefix) {
             out.extend(cte.columns.iter().cloned().map(Suggestion::Column));
         } else {
-            gather_columns(meta, aliases.get(&prefix).unwrap_or(&prefix), &mut out).await;
+            gather_columns(meta, aliases.get(&prefix).unwrap_or(&prefix), &mut out);
         }
         return Ok(out);
     }
@@ -47,7 +47,7 @@ pub(super) async fn search_select(
         .iter()
         .filter(|t| !ctes.iter().any(|c| c.alias == **t))
     {
-        gather_columns(meta, tbl, &mut out).await;
+        gather_columns(meta, tbl, &mut out);
     }
     Ok(out)
 }
@@ -75,7 +75,7 @@ pub(super) async fn search_dml(
     let mut out = Vec::new();
     if qualified_prefix_from_pos(tokens, ctx.clause_start, cursor_pos).is_none_or(|p| p == *target)
     {
-        gather_columns(meta, target, &mut out).await;
+        gather_columns(meta, target, &mut out);
     }
     Ok(out)
 }

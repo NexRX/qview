@@ -1,6 +1,9 @@
 use derive_more::{Debug, Display};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
+#[derive(
+    Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Display, Deserialize, Serialize,
+)]
 pub enum DataType {
     // Boolean
     Boolean,

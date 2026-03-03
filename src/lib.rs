@@ -4,11 +4,8 @@ reexport!(suggestion);
 reexport!(metadata);
 reexport!(sql);
 #[allow(unused_imports)]
+#[cfg(feature = "backend-impl")]
 pub(crate) use tracing::{debug, error, info, span, trace, warn};
-
-fn main() {
-    println!("Hello, world!");
-}
 
 #[macro_export]
 macro_rules! reexport {

@@ -3,31 +3,16 @@ crate::reexport!(table);
 crate::reexport!(schema);
 crate::reexport!(database);
 
-use sqlx::{Connection as _, PgConnection};
-use std::{collections::BTreeMap, fmt::Display, sync::LazyLock};
-use tokio::sync::RwLock;
+use std::{collections::BTreeMap, fmt::Display};
 
-pub type Data<T> = RwLock<BTreeMap<String, T>>;
-pub type DatabaseData = Data<Database>;
-pub type MetaData = LazyLock<DatabaseData>;
+pub type Data<T> = BTreeMap<String, T>;
 
-pub const fn new_metadata() -> MetaData {
-    LazyLock::new(|| Data::new(BTreeMap::new()))
-}
-
-pub async fn from_postgres_url(url: &str) -> sqlx::Result<MetaData> {
+#[cfg(feature = "backend-impl")]
+pub async fn from_postgres_url(url: &str) -> sqlx::Result<Database> {
+    use sqlx::{Connection as _, PgConnection};
+    tracing::debug!(?url, "Opening connection to database");
     let mut conn = PgConnection::connect(url).await?;
-    let databases: Vec<String> = sqlx::query_scalar!("SELECT datname FROM pg_database")
-        .fetch_all(&mut conn)
-        .await?;
+    let database = Database::from_postgres(&mut conn, "postgres").await?;
 
-    let database_metas = new_metadata();
-    for database in databases {
-        database_metas.blocking_write().insert(
-            database.clone(),
-            Database::from_postgres(&mut conn, &database).await?,
-        );
-    }
-
-    Ok(database_metas)
+    Ok(database)
 }

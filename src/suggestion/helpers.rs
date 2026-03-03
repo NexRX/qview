@@ -89,9 +89,9 @@ pub(super) fn qualified_prefix_from_pos(
 }
 
 /// Gather columns from a table in the database metadata.
-pub(super) async fn gather_columns(meta: &Database, table: &str, out: &mut Suggestions) {
-    for schema in meta.schemas.read().await.values() {
-        if let Some(t) = schema.tables.read().await.get(table) {
+pub(super) fn gather_columns(meta: &Database, table: &str, out: &mut Suggestions) {
+    for schema in meta.schemas.values() {
+        if let Some(t) = schema.tables.get(table) {
             out.extend(t.columns.values().cloned().map(Suggestion::Column));
         }
     }

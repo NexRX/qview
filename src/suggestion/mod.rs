@@ -13,10 +13,13 @@ mod types;
 
 use crate::sql::tokenizer::tokenize;
 use crate::{Column, Cursor, Database, Result};
+use serde::{Deserialize, Serialize};
 
 /// An autocomplete suggestion. Variants represent different kinds of things that can be suggested
 /// while the user types a SQL query: raw keywords, fully qualified columns and tables.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, derive_more::Display)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, derive_more::Display, Deserialize, Serialize,
+)]
 pub enum Suggestion {
     #[display("{_0}")]
     Keyword(String),
@@ -30,9 +33,9 @@ pub type Suggestions = Vec<Suggestion>;
 
 impl Suggestion {
     /// Search the SQL buffer for possible column suggestions at the given cursor.
-    pub async fn search(sql: &str, cursor: Cursor, meta: Database) -> Result<Suggestions> {
+    pub async fn search(sql: &str, cursor: Cursor, meta: &Database) -> Result<Suggestions> {
         let tokens = tokenize(sql);
         let cursor_pos = cursor.start();
-        search::search(sql, &tokens, cursor_pos, &meta).await
+        search::search(sql, &tokens, cursor_pos, meta).await
     }
 }

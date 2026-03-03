@@ -1,3 +1,4 @@
+#![cfg(feature = "backend-impl")]
 //! Validator module for parsing and validating SQL queries.
 use crate::*;
 use sqlx::{Executor as _, PgPool, SqlStr, postgres::PgStatement};
@@ -15,10 +16,8 @@ impl Validator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::{
-        Column as _, Statement as _,
-        postgres::PgErrorPosition::{self, *},
-    };
+    use crate::sqlx_cut::PgErrorPosition::{self, *};
+    use sqlx::{Column as _, Statement as _};
 
     #[test_context(IsolatedIntegrationTest)]
     #[rstest]
@@ -67,12 +66,10 @@ mod tests {
     pub async fn when_invalid<'a>(
         ctx: &mut IsolatedIntegrationTest,
         #[case] sql: &'static str,
-        #[case] code: &'static str,
-        #[case] message: &'static str,
-        #[case] position: PgErrorPosition<'a>,
+        #[case] expected_code: &'static str,
+        #[case] expected_message: &'static str,
+        #[case] expected_position: PgErrorPosition,
     ) {
-        use sqlx::postgres::PgDatabaseError;
-
         let validate = Validator {
             pool: ctx.pool.clone(),
         };
@@ -84,13 +81,15 @@ mod tests {
 
         let err = result.unwrap_err();
         match err {
-            Error::Database(sqlx::Error::Database(db_error))
-                if db_error.try_downcast_ref::<PgDatabaseError>().is_some() =>
-            {
-                let error = db_error.downcast::<PgDatabaseError>();
+            Error::Database {
+                kind: _,
+                message,
+                code,
+                position,
+            } => {
                 assert_eq!(
-                    (error.code(), error.message(), error.position()),
-                    (code, message, Some(position))
+                    (code.as_str(), message.as_str(), position),
+                    (expected_code, expected_message, Some(expected_position))
                 );
             }
             err => panic!("Unexpected kind of err {err:?}"),

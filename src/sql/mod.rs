@@ -22,7 +22,7 @@
 //!
 //! Example:
 //! ```rust
-//! use qview::sql::prelude::*;
+//! use qview::{tokenize, Keyword};
 //!
 //! let tokens = tokenize("SELECT a, b FROM my_table");
 //! assert!(tokens.iter().any(|t| t.is_keyword(Keyword::Select)));

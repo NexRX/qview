@@ -31,7 +31,7 @@ type TableDef<'a> = (&'a str, Vec<ColumnDef<'a>>);
 /// When `other_schema` is `None`, all tables go into "public".
 /// When `other_schema` is `Some((schema_name, tables))`, those tables
 /// are added to the specified schema in addition to public tables.
-async fn database(
+fn database(
     database_name: &str,
     public_tables: &[TableDef<'_>],
     other_schema: Option<(&str, &[TableDef<'_>])>,
@@ -48,8 +48,7 @@ async fn database(
                     .cloned()
                     .map(|(name, data_type)| (name.to_string(), data_type)),
             ),
-        )
-        .await;
+        );
     }
 
     if let Some((schema_name, tables)) = other_schema {
@@ -63,8 +62,7 @@ async fn database(
                         .cloned()
                         .map(|(name, data_type)| (name.to_string(), data_type)),
                 ),
-            )
-            .await;
+            );
         }
     }
 
@@ -72,8 +70,8 @@ async fn database(
 }
 
 /// Shorthand for single-schema database setup.
-async fn db(tables: &[TableDef<'_>]) -> Database {
-    database("postgres", tables, None).await
+fn db(tables: &[TableDef<'_>]) -> Database {
+    database("postgres", tables, None)
 }
 
 #[cfg(test)]
@@ -516,8 +514,8 @@ mod unqualified_column_suggestions {
         #[case] tables: Vec<(&str, Vec<(&str, DataType)>)>,
         #[case] expected: Vec<(&str, DataType)>,
     ) {
-        let meta = db(&tables).await;
-        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+        let meta = db(&tables);
+        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), &meta)
             .await
             .expect("suggestion search should not error");
         result.sort();
@@ -687,8 +685,8 @@ mod subquery_isolation {
         #[case] tables: Vec<(&str, Vec<(&str, DataType)>)>,
         #[case] expected: Vec<(&str, DataType)>,
     ) {
-        let meta = db(&tables).await;
-        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+        let meta = db(&tables);
+        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), &meta)
             .await
             .expect("suggestion search should not error");
         result.sort();
@@ -924,8 +922,8 @@ mod qualified_column_suggestions {
         #[case] tables: Vec<(&str, Vec<(&str, DataType)>)>,
         #[case] expected: Vec<(&str, DataType)>,
     ) {
-        let meta = db(&tables).await;
-        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+        let meta = db(&tables);
+        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), &meta)
             .await
             .expect("suggestion search should not error");
         result.sort();
@@ -960,8 +958,8 @@ mod qualified_column_suggestions {
         #[case] tables: Vec<(&str, Vec<(&str, DataType)>)>,
         #[case] expected: Vec<(&str, DataType)>,
     ) {
-        let meta = db(&tables).await;
-        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+        let meta = db(&tables);
+        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), &meta)
             .await
             .expect("alias shadowing resolution");
         result.sort();
@@ -1039,8 +1037,8 @@ mod union_and_set_operations {
         #[case] tables: Vec<(&str, Vec<(&str, DataType)>)>,
         #[case] expected: Vec<(&str, DataType)>,
     ) {
-        let meta = db(&tables).await;
-        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+        let meta = db(&tables);
+        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), &meta)
             .await
             .expect("set operation scope");
         result.sort();
@@ -1094,9 +1092,8 @@ mod multi_schema {
             "postgres",
             &public_tables,
             Some((other_schema, &other_tables)),
-        )
-        .await;
-        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+        );
+        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), &meta)
             .await
             .expect("multi-schema aggregation");
         result.sort();
@@ -1229,8 +1226,8 @@ mod known_gaps {
         #[case] expected: Vec<(&str, DataType)>,
         #[case] gap_description: &str,
     ) {
-        let meta = db(&tables).await;
-        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+        let meta = db(&tables);
+        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), &meta)
             .await
             .expect("known gap test");
         result.sort();
@@ -1261,8 +1258,8 @@ mod known_gaps {
         #[case] expected: Vec<(&str, DataType)>,
         #[case] gap_description: &str,
     ) {
-        let meta = db(&tables).await;
-        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+        let meta = db(&tables);
+        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), &meta)
             .await
             .expect("CTE gap test");
         result.sort();
@@ -1491,8 +1488,8 @@ mod postgres_edge_cases {
         #[case] tables: Vec<(&str, Vec<(&str, DataType)>)>,
         #[case] expected: Vec<(&str, DataType)>,
     ) {
-        let meta = db(&tables).await;
-        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+        let meta = db(&tables);
+        let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), &meta)
             .await
             .expect("postgres edge case");
         result.sort();
@@ -1597,8 +1594,8 @@ mod dml_statements {
             #[case] tables: Vec<(&str, Vec<(&str, DataType)>)>,
             #[case] expected: Vec<(&str, DataType)>,
         ) {
-            let meta = db(&tables).await;
-            let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+            let meta = db(&tables);
+            let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), &meta)
                 .await
                 .expect("INSERT statement test");
             result.sort();
@@ -1697,8 +1694,8 @@ mod dml_statements {
             #[case] tables: Vec<(&str, Vec<(&str, DataType)>)>,
             #[case] expected: Vec<(&str, DataType)>,
         ) {
-            let meta = db(&tables).await;
-            let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+            let meta = db(&tables);
+            let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), &meta)
                 .await
                 .expect("UPDATE statement test");
             result.sort();
@@ -1786,8 +1783,8 @@ mod dml_statements {
             #[case] tables: Vec<(&str, Vec<(&str, DataType)>)>,
             #[case] expected: Vec<(&str, DataType)>,
         ) {
-            let meta = db(&tables).await;
-            let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+            let meta = db(&tables);
+            let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), &meta)
                 .await
                 .expect("DELETE statement test");
             result.sort();
@@ -1897,8 +1894,8 @@ mod dml_statements {
             #[case] tables: Vec<(&str, Vec<(&str, DataType)>)>,
             #[case] expected: Vec<(&str, DataType)>,
         ) {
-            let meta = db(&tables).await;
-            let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), meta)
+            let meta = db(&tables);
+            let mut result = Suggestion::search(sql, Cursor::new(cursor_pos, None), &meta)
                 .await
                 .expect("DML edge case test");
             result.sort();

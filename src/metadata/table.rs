@@ -1,4 +1,3 @@
-use super::*;
 use crate::*;
 use std::collections::BTreeMap;
 
@@ -46,7 +45,8 @@ impl Table {
         }
     }
 
-    pub async fn from_postgres(conn: &mut PgConnection, table: &str) -> sqlx::Result<Self> {
+    #[cfg(feature = "backend-impl")]
+    pub async fn from_postgres(conn: &mut sqlx::PgConnection, table: &str) -> sqlx::Result<Self> {
         let columns: BTreeMap<String, DataType> = sqlx::query!(
             "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = $1 ORDER BY ordinal_position",
             table
